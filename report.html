@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Report: SignSpeak</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Teal, Amber, and Dark Gray (Streamlit Dark Mode Inspired) -->
+    <!-- Application Structure Plan: A single-page, narrative-driven application that guides the user through the project lifecycle. The structure is thematic rather than mirroring the report's chapters, starting with the outcome (Hero), explaining the problem (Overview), showing the process (Interactive Pipeline), proving the results (Performance Deep Dive), analyzing challenges (Data Insights), and finally looking ahead (Future Directions). This flow is more engaging for a web audience and facilitates understanding by building context progressively. Key interactions include a clickable pipeline diagram and hover-able charts to make data exploration intuitive and focused. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Overall Accuracy (99.63%). Goal: Inform/Impress. Viz: Large hero text. Interaction: None. Justification: Immediately establishes project success.
+        - Report Info: 4-Stage ML Pipeline. Goal: Explain Process. Viz: Custom HTML/CSS/JS diagram. Interaction: Click to reveal details for each stage. Justification: More engaging and less dense than a long text description.
+        - Report Info: Per-Class Classification Report. Goal: Compare/Analyze. Viz: Interactive Bar Chart (Chart.js). Interaction: Hover for tooltips with precise scores. Justification: Allows for easy comparison across all 23 classes and three key metrics (Precision, Recall, F1), which is difficult with a static table.
+        - Report Info: Data Quality Analysis (Error Log). Goal: Analyze/Inform. Viz: Bar Chart (Chart.js). Interaction: Hover for tooltips. Justification: Visually quantifies the "hand self-occlusion" problem mentioned in the report, making the concept more concrete.
+        - Report Info: Future Recommendations. Goal: Inform/Organize. Viz: HTML/CSS card layout. Interaction: None. Justification: Presents future steps as distinct, digestible ideas.
+        - Library/Method: Chart.js for all charts due to its simplicity, responsiveness, and canvas-based rendering. Custom JS for the interactive pipeline diagram.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* gray-900 */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 450px;
+            max-height: 50vh;
+        }
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 400px;
+                max-height: 60vh;
+            }
+        }
+        .pipeline-stage {
+            transition: all 0.3s ease-in-out;
+        }
+        .pipeline-stage .details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out;
+        }
+        .pipeline-stage.active {
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            border-color: #14b8a6; /* teal-500 */
+        }
+        .pipeline-stage.active .details {
+            max-height: 500px;
+            padding-top: 1rem;
+            padding-bottom: 1.5rem;
+        }
+        .pipeline-stage.active .arrow-icon {
+            transform: rotate(180deg);
+        }
+        .nav-link {
+            transition: color 0.2s;
+        }
+        .nav-link.active {
+            color: #2dd4bf; /* teal-400 */
+            font-weight: 600;
+        }
+        .arrow-icon {
+            transition: transform 0.3s ease-in-out;
+        }
+        .home-arrow {
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-15px);
+            }
+            60% {
+                transform: translateY(-10px);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <section id="home" class="min-h-screen flex flex-col items-center justify-center text-center p-6">
+        <img src="/home/dpxk/Desktop/AI_Project_Deepak_Diksha_Shifa_Shreya/signspeaklogo.jpeg" alt="SignSpeak Logo" class="h-48 w-48 rounded-full mb-4">
+        <a href="#main-content" class="mt-12 text-teal-400 text-5xl home-arrow">
+            &#8595;
+        </a>
+    </section>
+
+    <div id="main-content">
+        <header class="sticky top-0 z-50 bg-gray-900/80 backdrop-blur-lg border-b border-gray-700">
+            <nav class="container mx-auto px-6 py-4">
+                <div class="flex justify-between items-center">
+                    <div class="text-xl font-bold text-white">
+                        SignSpeak
+                    </div>
+                    <div class="hidden md:flex space-x-8">
+                        <a href="#overview" class="nav-link text-gray-400 hover:text-teal-400">Overview</a>
+                        <a href="#pipeline" class="nav-link text-gray-400 hover:text-teal-400">Pipeline</a>
+                        <a href="#performance" class="nav-link text-gray-400 hover:text-teal-400">Performance</a>
+                        <a href="#analysis" class="nav-link text-gray-400 hover:text-teal-400">Analysis</a>
+                        <a href="#future" class="nav-link text-gray-400 hover:text-teal-400">Future Work</a>
+                    </div>
+                    <div class="md:hidden">
+                        <select id="mobile-nav" class="bg-gray-800 border border-gray-600 text-white rounded-md p-2 focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                            <option value="#overview">Overview</option>
+                            <option value="#pipeline">Pipeline</option>
+                            <option value="#performance">Performance</option>
+                            <option value="#analysis">Analysis</option>
+                            <option value="#future">Future Work</option>
+                        </select>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <main class="container mx-auto px-6">
+
+            <section id="hero" class="py-20 md:py-32 scroll-mt-20">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                    <div class="text-center md:text-left">
+                        <h1 class="text-4xl md:text-6xl font-extrabold text-white leading-tight">SignSpeak: Real-Time Sign Language Recognizer</h1>
+                        <p class="mt-4 text-lg md:text-xl text-gray-300 max-w-xl mx-auto md:mx-0">An interactive analysis of a machine learning project designed to bridge communication gaps for the deaf and hard-of-hearing community.</p>
+                    </div>
+                    <div class="flex justify-center">
+                        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-700 text-center transform hover:scale-105 transition-transform duration-300">
+                            <p class="text-base font-medium text-teal-400 uppercase tracking-wider">Overall Model Accuracy</p>
+                            <p class="text-7xl font-bold text-white mt-2">99.63%</p>
+                            <p class="text-gray-400 mt-2">on unseen test data</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="max-w-4xl mx-auto">
+
+                <section id="overview" class="py-16 md:py-24 scroll-mt-20">
+                    <h2 class="text-3xl md:text-4xl font-bold text-center text-white">Project Overview</h2>
+                    <p class="mt-6 text-lg text-center text-gray-300 max-w-3xl mx-auto">This project's primary objective was to design and build an accessible, high-accuracy tool that translates static ISL alphabet signs into text. By leveraging computer vision and machine learning, the system aims to provide a seamless bridge for communication, using only a standard webcam.</p>
+                </section>
+
+                <hr class="my-12 border-gray-700">
+
+                <section id="pipeline" class="py-16 md:py-24 scroll-mt-20">
+                    <h2 class="text-3xl md:text-4xl font-bold text-center text-white">The Machine Learning Pipeline</h2>
+                    <p class="mt-6 text-lg text-center text-gray-300 max-w-3xl mx-auto">The project was built on a sequential four-stage pipeline. Each stage's output serves as the input for the next, creating a structured and repeatable workflow. Click on any stage below to expand its details.</p>
+                    <div id="pipeline-diagram" class="mt-16 space-y-4">
+                        
+                        <div class="pipeline-stage bg-gray-800 border border-gray-700 rounded-xl overflow-hidden cursor-pointer hover:border-teal-500" data-stage="1">
+                            <div class="p-6 flex items-center">
+                                <div class="flex-shrink-0 bg-teal-900/70 text-teal-300 w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">1</div>
+                                <h3 class="ml-5 text-xl font-semibold text-gray-100">Data Acquisition</h3>
+                                <div class="arrow-icon ml-auto text-gray-500 text-2xl">▾</div>
+                            </div>
+                            <div class="details bg-gray-900 px-6 text-gray-300">
+                                A custom dataset of **23,000 images** was created using OpenCV and a standard webcam. To ensure diversity, 1,000 images were captured for each of the 23 static ISL alphabet signs, with a prompt to switch hands halfway through. This strategy helps the model generalize to both left and right-handed signers.
+                            </div>
+                        </div>
+
+                        <div class="pipeline-stage bg-gray-800 border border-gray-700 rounded-xl overflow-hidden cursor-pointer hover:border-teal-500" data-stage="2">
+                            <div class="p-6 flex items-center">
+                                <div class="flex-shrink-0 bg-teal-900/70 text-teal-300 w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">2</div>
+                                <h3 class="ml-5 text-xl font-semibold text-gray-100">Feature Engineering</h3>
+                                <div class="arrow-icon ml-auto text-gray-500 text-2xl">▾</div>
+                            </div>
+                            <div class="details bg-gray-900 px-6 text-gray-300">
+                                Instead of using raw pixels, Google's **MediaPipe Hands** library was used to convert each image into a meaningful numerical representation. It identifies 21 key landmarks on each hand, creating a normalized **84-dimension feature vector** that describes the hand's shape, invariant to its size or position in the frame.
+                            </div>
+                        </div>
+
+                        <div class="pipeline-stage bg-gray-800 border border-gray-700 rounded-xl overflow-hidden cursor-pointer hover:border-teal-500" data-stage="3">
+                            <div class="p-6 flex items-center">
+                                <div class="flex-shrink-0 bg-teal-900/70 text-teal-300 w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">3</div>
+                                <h3 class="ml-5 text-xl font-semibold text-gray-100">Model Training</h3>
+                                <div class="arrow-icon ml-auto text-gray-500 text-2xl">▾</div>
+                            </div>
+                            <div class="details bg-gray-900 px-6 text-gray-300">
+                                A **Random Forest Classifier** from scikit-learn was trained on 80% of the prepared data. This model is an ensemble of 200 decision trees, making it robust and highly effective for this type of data. The features were standardized using `StandardScaler` before training to ensure optimal performance.
+                            </div>
+                        </div>
+
+                        <div class="pipeline-stage bg-gray-800 border border-gray-700 rounded-xl overflow-hidden cursor-pointer hover:border-teal-500" data-stage="4">
+                            <div class="p-6 flex items-center">
+                                <div class="flex-shrink-0 bg-teal-900/70 text-teal-300 w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold">4</div>
+                                <h3 class="ml-5 text-xl font-semibold text-gray-100">Real-Time Inference</h3>
+                                <div class="arrow-icon ml-auto text-gray-500 text-2xl">▾</div>
+                            </div>
+                            <div class="details bg-gray-900 px-6 text-gray-300">
+                                The trained model was deployed in a user-friendly web application using **Streamlit**. The app accesses the webcam, performs the same feature extraction in real-time, and uses the model to predict the sign. A smoothing algorithm (majority vote over a buffer) prevents flickering and stabilizes the output.
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <hr class="my-12 border-gray-700">
+
+                <section id="performance" class="py-16 md:py-24 scroll-mt-20">
+                    <h2 class="text-3xl md:text-4xl font-bold text-center text-white">Performance Deep Dive</h2>
+                    <p class="mt-6 text-lg text-center text-gray-300 max-w-3xl mx-auto">The model's performance was rigorously evaluated on the 20% of data it had never seen during training. The chart below shows the per-class Precision, Recall, and F1-Score, demonstrating consistently high performance across all signs. Hover over the bars for exact values.</p>
+                    <div class="mt-16 bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-700">
+                        <div class="chart-container">
+                            <canvas id="performanceChart"></canvas>
+                        </div>
+                    </div>
+                     <div class="mt-12 text-center bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700">
+                        <p class="text-base font-medium text-teal-400 uppercase tracking-wider">10-Fold Cross-Validation Score</p>
+                        <p class="text-5xl font-bold text-white mt-2">99.55% <span class="text-3xl font-medium text-gray-400">± 0.09%</span></p>
+                        <p class="text-gray-400 mt-2">This confirms the model's performance is stable and not due to a lucky data split.</p>
+                    </div>
+                </section>
+
+                <hr class="my-12 border-gray-700">
+
+                <section id="analysis" class="py-16 md:py-24 scroll-mt-20">
+                    <h2 class="text-3xl md:text-4xl font-bold text-center text-white">Data Quality Analysis</h2>
+                    <p class="mt-6 text-lg text-center text-gray-300 max-w-3xl mx-auto">Not all captured images were usable. An analysis of the error log revealed that the MediaPipe framework failed to detect a hand in **4.67%** of the images. This chart visualizes the distribution of these errors, highlighting a key challenge.</p>
+                    <div class="mt-16 bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-700">
+                        <div class="chart-container">
+                            <canvas id="errorAnalysisChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="mt-12 text-center">
+                        <h4 class="text-xl font-semibold text-gray-100">Key Insight: Hand Self-Occlusion</h4>
+                        <p class="mt-2 text-lg text-gray-300 max-w-2xl mx-auto">The signs with the highest error rates ('C', 'S', 'H', 'Z') are those where fingers obscure the palm or other landmarks. This makes it difficult for the vision model to confidently identify a hand, a known limitation that informs future data collection strategies.</p>
+                    </div>
+                </section>
+                
+                <hr class="my-12 border-gray-700">
+
+                <section id="future" class="py-16 md:py-24 scroll-mt-20">
+                    <h2 class="text-3xl md:text-4xl font-bold text-center text-white">Future Directions</h2>
+                    <p class="mt-6 text-lg text-center text-gray-300 max-w-3xl mx-auto">While the project was highly successful, several avenues exist for future improvement and expansion.</p>
+                    <div class="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="bg-gray-800 p-8 rounded-2xl border border-gray-700 shadow-2xl transform hover:-translate-y-2 transition-transform duration-300">
+                            <h4 class="font-semibold text-xl text-gray-100">1. Expand to Dynamic Gestures</h4>
+                            <p class="mt-3 text-gray-400">Move beyond static letters to recognize full words and phrases. This would require collecting video data and using sequence models like LSTMs or Transformers.</p>
+                        </div>
+                        <div class="bg-gray-800 p-8 rounded-2xl border border-gray-700 shadow-2xl transform hover:-translate-y-2 transition-transform duration-300">
+                            <h4 class="font-semibold text-xl text-gray-100">2. Enhance Dataset Robustness</h4>
+                            <p class="mt-3 text-gray-400">Improve real-world performance by collecting more data under varied lighting, with cluttered backgrounds, and from a more diverse group of signers.</p>
+                        </div>
+                        <div class="bg-gray-800 p-8 rounded-2xl border border-gray-700 shadow-2xl transform hover:-translate-y-2 transition-transform duration-300">
+                            <h4 class="font-semibold text-xl text-gray-100">3. Mobile Deployment</h4>
+                            <p class="mt-3 text-gray-400">For maximum accessibility, convert the model to a lightweight format (like TensorFlow Lite) and deploy it in a native iOS or Android application.</p>
+                        </div>
+                        <div class="bg-gray-800 p-8 rounded-2xl border border-gray-700 shadow-2xl transform hover:-translate-y-2 transition-transform duration-300">
+                            <h4 class="font-semibold text-xl text-gray-100">4. Explore Alternative Models</h4>
+                            <p class="mt-3 text-gray-400">While Random Forest performed exceptionally, Gradient Boosting models (like XGBoost or LightGBM) could potentially yield further accuracy improvements.</p>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+
+        <footer class="bg-black text-gray-400 mt-24">
+            <div class="container mx-auto px-6 py-8 text-center">
+                <p>Interactive Report generated from source material.</p>
+                <p class="text-sm text-gray-500 mt-2">Project Version 1.0 | August 8, 2025</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const performanceData = {
+                labels: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'S', 'T', 'U', 'W', 'X', 'Y', 'Z'],
+                precision: [1.00, 1.00, 0.99, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 0.99, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 0.99, 1.00, 1.00],
+                recall: [1.00, 1.00, 0.99, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 0.99, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 0.99],
+                f1: [1.00, 1.00, 0.99, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 0.99, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 0.99]
+            };
+
+            const errorAnalysisData = {
+                labels: ['C', 'S', 'H', 'Z', 'A', 'M', 'N', 'E', 'T'],
+                errors: [152, 141, 110, 105, 75, 71, 68, 55, 51]
+            };
+            
+            Chart.defaults.font.family = "'Inter', sans-serif";
+            Chart.defaults.color = '#d1d5db'; // gray-300
+
+            const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+            new Chart(performanceCtx, {
+                type: 'bar',
+                data: {
+                    labels: performanceData.labels,
+                    datasets: [{
+                        label: 'Precision',
+                        data: performanceData.precision,
+                        backgroundColor: 'rgba(20, 184, 166, 0.7)', // teal-500
+                        borderColor: 'rgba(15, 118, 110, 1)', // teal-700
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }, {
+                        label: 'Recall',
+                        data: performanceData.recall,
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)', // blue-500
+                        borderColor: 'rgba(37, 99, 235, 1)', // blue-700
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }, {
+                        label: 'F1-Score',
+                        data: performanceData.f1,
+                        backgroundColor: 'rgba(251, 191, 36, 0.7)', // amber-400
+                        borderColor: 'rgba(217, 119, 6, 1)', // amber-600
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            min: 0.95,
+                            max: 1.0,
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#9ca3af' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#9ca3af' }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { color: '#d1d5db' } },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: '#1f2937',
+                            titleColor: '#f9fafb',
+                            bodyColor: '#f3f4f6',
+                            boxPadding: 8,
+                            cornerRadius: 6,
+                            borderColor: '#374151',
+                            borderWidth: 1
+                        }
+                    }
+                }
+            });
+
+            const errorAnalysisCtx = document.getElementById('errorAnalysisChart').getContext('2d');
+            new Chart(errorAnalysisCtx, {
+                type: 'bar',
+                data: {
+                    labels: errorAnalysisData.labels,
+                    datasets: [{
+                        label: 'Detection Errors',
+                        data: errorAnalysisData.errors,
+                        backgroundColor: 'rgba(239, 68, 68, 0.7)', 
+                        borderColor: 'rgba(185, 28, 28, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#9ca3af' }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { color: '#9ca3af' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Top 9 Signs with Hand Detection Errors',
+                            font: { size: 16 },
+                            color: '#f9fafb'
+                        },
+                        tooltip: {
+                            backgroundColor: '#1f2937',
+                            titleColor: '#f9fafb',
+                            bodyColor: '#f3f4f6',
+                            boxPadding: 8,
+                            cornerRadius: 6,
+                            borderColor: '#374151',
+                            borderWidth: 1
+                        }
+                    }
+                }
+            });
+
+            const pipelineStages = document.querySelectorAll('.pipeline-stage');
+            pipelineStages.forEach(stage => {
+                stage.addEventListener('click', () => {
+                    const currentlyActive = document.querySelector('.pipeline-stage.active');
+                    if (currentlyActive && currentlyActive !== stage) {
+                        currentlyActive.classList.remove('active');
+                    }
+                    stage.classList.toggle('active');
+                });
+            });
+
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('#main-content section');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.id;
+                        navLinks.forEach(link => {
+                            link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+                        });
+                        const mobileNav = document.getElementById('mobile-nav');
+                        mobileNav.value = `#${id}`;
+                    }
+                });
+            }, { rootMargin: "-30% 0px -70% 0px" });
+
+            sections.forEach(section => {
+                if (section.id) {
+                     observer.observe(section);
+                }
+            });
+            
+            const mobileNav = document.getElementById('mobile-nav');
+            mobileNav.addEventListener('change', (e) => {
+                 document.querySelector(e.target.value).scrollIntoView();
+            });
+        });
+    </script>
+</body>
+</html>
