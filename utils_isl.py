@@ -1,4 +1,3 @@
-# utils_isl.py
 import os
 import numpy as np
 
@@ -28,6 +27,7 @@ def pad_or_truncate(vector, target_len):
 LANMARKS_PER_HAND = 21
 COORDS_PER_LM = 2
 PER_HAND_LEN = LANMARKS_PER_HAND * COORDS_PER_LM
+
 # we will store two hands: Left then Right -> total vector length:
 TWO_HAND_VECTOR_LEN = PER_HAND_LEN * 2
 TARGET_VECTOR_LEN = TWO_HAND_VECTOR_LEN

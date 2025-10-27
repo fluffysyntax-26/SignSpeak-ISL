@@ -1,7 +1,5 @@
 """
 Streamlit app for ISL static sign recognition (supports 1 or 2 hands).
-Run: streamlit run recognizer_streamlit.py
-Requirements: streamlit, opencv-python, mediapipe, joblib, pillow
 """
 
 import streamlit as st
@@ -28,18 +26,24 @@ h1 { color: #1f2937; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🤟 ISL Static Sign Recognizer (1 & 2 hand support)")
+st.title("ISL Static Sign Recognizer (1 & 2 hand support)")
 st.write("Upload an image or use webcam for real-time recognition (static ISL gestures only).")
 
 # Sidebar controls
 st.sidebar.header("Model / Options")
-model_path = st.sidebar.text_input("Model file", value="model_isl.p")
-labels_file = st.sidebar.text_input("Labels file", value="labels_isl.txt")
+
+# Uncomment these lines for easier control and testing while running on local machine
+# model_path = st.sidebar.text_input("Model file", value="model_isl.p")
+# labels_file = st.sidebar.text_input("Labels file", value="labels_isl.txt")
+
+model_path = "model_isl.p"
+labels_file = "labels_isl.txt"
+
 conf_threshold = st.sidebar.slider("Confidence threshold (not used for predict-only model)", 0.0, 1.0, 0.5)
 frames_skip = st.sidebar.number_input("Predict every N frames (higher = faster)", min_value=1, max_value=10, value=3)
 smoothing_k = st.sidebar.number_input("Smoothing window size (majority vote)", min_value=1, max_value=20, value=5)
 
-# --- Load Model & Labels (Same as before) ---
+# Load Model & Labels (Same as before)
 model = None
 scaler = None
 labels_list = []
@@ -64,14 +68,14 @@ if os.path.exists(labels_file):
 else:
     st.sidebar.warning("labels_isl.txt not found. Place it in the app folder.")
 
-# --- MediaPipe Setup (Same as before) ---
+# MediaPipe Setup
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(static_image_mode=False,
                        min_detection_confidence=0.5,
                        max_num_hands=2)
 mp_drawing = mp.solutions.drawing_utils
 
-# --- Landmark/Prediction Functions (Same as before) ---
+# Landmark/Prediction Functions
 def build_two_hand_vector_from_results(results):
     vec = [0.0] * TARGET_VECTOR_LEN
     if not results.multi_hand_landmarks:
@@ -127,7 +131,7 @@ def predict_vector(vec):
         except Exception:
             return None
 
-# --- Image Upload Logic (Same as before) ---
+# Image Upload Logic
 col1, col2 = st.columns(2)
 with col1:
     uploaded = st.file_uploader("Upload an image", type=['png','jpg','jpeg'])
@@ -151,7 +155,7 @@ if uploaded:
     else:
         st.info("No hands detected. Try another image or improve lighting.")
 
-# --- NEW: WebRTC Implementation ---
+# WebRTC Implementation
 # We use a class to store the state (buffer, counter, etc.)
 class SignRecognizer:
     def __init__(self):
@@ -176,7 +180,7 @@ class SignRecognizer:
             for hl in results.multi_hand_landmarks:
                 mp_drawing.draw_landmarks(display_frame, hl, mp_hands.HAND_CONNECTIONS)
 
-        # Prediction logic (same as your old loop)
+        # Prediction logic (same as old loop)
         if self.skip_counter % int(frames_skip) == 0:
             vec = build_two_hand_vector_from_results(results)
             if not np.allclose(vec, 0.0) and model is not None:

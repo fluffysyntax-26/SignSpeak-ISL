@@ -1,4 +1,3 @@
-# train_classifier_isl.py
 """
 Train a RandomForest classifier on data_isl.pickle and save model_isl.p (joblib)
 Usage:
