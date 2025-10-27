@@ -1,5 +1,7 @@
 """
 Streamlit app for ISL static sign recognition (supports 1 or 2 hands).
+Run: streamlit run recognizer_streamlit.py
+Requirements: streamlit, opencv-python, mediapipe, joblib, pillow
 """
 
 import streamlit as st
@@ -13,7 +15,9 @@ from collections import deque
 from utils_isl import pad_or_truncate, TARGET_VECTOR_LEN, PER_HAND_LEN
 
 # Import WebRTC components
-from streamlit_webrtc import webrtc_streamer, VideoFrame, WebRtcMode
+from streamlit_webrtc import webrtc_streamer, WebRtcMode
+# CHANGE 1: Import av
+import av
 
 st.set_page_config(page_title="ISL Sign Recognizer", layout="centered",
                    page_icon="🤟", initial_sidebar_state="expanded")
@@ -26,16 +30,13 @@ h1 { color: #1f2937; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("ISL Static Sign Recognizer (1 & 2 hand support)")
+st.title("🤟 ISL Static Sign Recognizer (1 & 2 hand support)")
 st.write("Upload an image or use webcam for real-time recognition (static ISL gestures only).")
 
 # Sidebar controls
 st.sidebar.header("Model / Options")
 
-# Uncomment these lines for easier control and testing while running on local machine
-# model_path = st.sidebar.text_input("Model file", value="model_isl.p")
-# labels_file = st.sidebar.text_input("Labels file", value="labels_isl.txt")
-
+# removed the text inputs to simplify the UI and hardcoded the paths
 model_path = "model_isl.p"
 labels_file = "labels_isl.txt"
 
@@ -43,7 +44,8 @@ conf_threshold = st.sidebar.slider("Confidence threshold (not used for predict-o
 frames_skip = st.sidebar.number_input("Predict every N frames (higher = faster)", min_value=1, max_value=10, value=3)
 smoothing_k = st.sidebar.number_input("Smoothing window size (majority vote)", min_value=1, max_value=20, value=5)
 
-# Load Model & Labels (Same as before)
+
+# Load Model & Labels
 model = None
 scaler = None
 labels_list = []
@@ -68,7 +70,7 @@ if os.path.exists(labels_file):
 else:
     st.sidebar.warning("labels_isl.txt not found. Place it in the app folder.")
 
-# MediaPipe Setup
+# MediaPipe Setup (Same as before)
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(static_image_mode=False,
                        min_detection_confidence=0.5,
@@ -150,7 +152,7 @@ if uploaded:
         if pred is None:
             st.info("Model not loaded or couldn't predict.")
         else:
-            st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), use_column_width=True)
+            st.image(cv2.cvtColor(frame, cv2.COLOR_BGR_RGB), use_column_width=True)
             st.markdown(f"### Prediction: **{pred}**")
     else:
         st.info("No hands detected. Try another image or improve lighting.")
@@ -163,7 +165,8 @@ class SignRecognizer:
         self.last_display_pred = None
         self.skip_counter = 0
 
-    def video_frame_callback(self, frame: VideoFrame) -> VideoFrame:
+    # CHANGE 2: Updated type hints to av.VideoFrame
+    def video_frame_callback(self, frame: av.VideoFrame) -> av.VideoFrame:
         # Decode the video frame
         img = frame.to_ndarray(format="bgr24")
         
@@ -180,7 +183,7 @@ class SignRecognizer:
             for hl in results.multi_hand_landmarks:
                 mp_drawing.draw_landmarks(display_frame, hl, mp_hands.HAND_CONNECTIONS)
 
-        # Prediction logic (same as old loop)
+        # Prediction logic
         if self.skip_counter % int(frames_skip) == 0:
             vec = build_two_hand_vector_from_results(results)
             if not np.allclose(vec, 0.0) and model is not None:
@@ -204,8 +207,8 @@ class SignRecognizer:
             cv2.putText(display_frame, f"{self.last_display_pred}", (30,40),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0,255,0), 2, cv2.LINE_AA)
         
-        # Encode and return the frame
-        return VideoFrame.from_ndarray(display_frame, format="bgr24")
+        # CHANGE 3: Encode and return the frame using av.VideoFrame
+        return av.VideoFrame.from_ndarray(display_frame, format="bgr24")
 
 # This is the main change: replace the old `if use_cam:` block
 if use_cam:
@@ -215,7 +218,7 @@ if use_cam:
     webrtc_streamer(
         key="sign-recognizer",
         mode=WebRtcMode.SENDRECV,
-        # We pass the callback from an *instance* of our class
+        # pass the callback from an instance of our class
         video_frame_callback=SignRecognizer().video_frame_callback,
         media_stream_constraints={"video": True, "audio": False},
         async_processing=True,
