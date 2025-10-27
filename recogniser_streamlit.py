@@ -70,9 +70,11 @@ hands = mp_hands.Hands(static_image_mode=False,
 mp_drawing = mp.solutions.drawing_utils
 
 def build_two_hand_vector_from_results(results):
+    # zeros default
     vec = [0.0] * TARGET_VECTOR_LEN
     if not results.multi_hand_landmarks:
-        return vec
+        return np.array(vec, dtype=np.float32) # Return numpy array
+        
     # collect handedness
     hand_labels = []
     if results.multi_handedness:
@@ -81,6 +83,7 @@ def build_two_hand_vector_from_results(results):
                 hand_labels.append(h.classification[0].label)
             except Exception:
                 hand_labels.append('Unknown')
+                
     # map labels to coords, same as dataset building
     hand_map = {}
     for idx, lm in enumerate(results.multi_hand_landmarks):
@@ -95,9 +98,26 @@ def build_two_hand_vector_from_results(results):
         coords = pad_or_truncate(coords, PER_HAND_LEN).tolist()
         if lab not in hand_map:
             hand_map[lab] = coords
+            
+    # --- MODIFIED LOGIC START ---
+    
+    num_hands = len(hand_map)
     left = hand_map.get('Left', [0.0]*PER_HAND_LEN)
     right = hand_map.get('Right', [0.0]*PER_HAND_LEN)
-    return np.array(left + right, dtype=np.float32)
+
+    final_vec = []
+    if num_hands == 1:
+        # If only one hand, normalize it to the 'Left' slot
+        if 'Left' in hand_map:
+            final_vec = left + right # (right is zeros)
+        else: # 'Right' or 'Unknown' must be in hand_map
+            final_vec = right + left # (left is zeros)
+    else:
+        # 0 or 2 hands, standard order
+        final_vec = left + right
+        
+    return np.array(final_vec, dtype=np.float32)
+    # --- MODIFIED LOGIC END ---
 
 def predict_vector(vec):
     if scaler is not None:
@@ -137,7 +157,7 @@ if uploaded:
         if pred is None:
             st.info("Model not loaded or couldn't predict.")
         else:
-            st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), use_column_width=True)
+            st.image(cv2.cvtColor(frame, cv2.COLOR_BGR_RGB), use_column_width=True)
             st.markdown(f"### Prediction: **{pred}**")
     else:
         st.info("No hands detected. Try another image or improve lighting.")
